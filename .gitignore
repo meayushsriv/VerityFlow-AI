@@ -1,0 +1,36 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Data and model artifacts
+ml/data/raw/*
+!ml/data/raw/.gitkeep
+ml/data/processed/*
+!ml/data/processed/.gitkeep
+ml/artifacts/*
+!ml/artifacts/.gitkeep
+
+# Build and dependencies
+node_modules/
+frontend/dist/
+__pycache__/
+*.py[cod]
+*.tsbuildinfo
+.pytest_cache/
+.venv/
+venv/
+coverage/
+
+# Go outputs
+backend/bin/
+*.test
+
+# IDE and logs
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

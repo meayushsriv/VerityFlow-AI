@@ -1,0 +1,42 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8080"
+      CORS_ORIGINS: "http://localhost:5173"
+      INFERENCE_URL: "http://inference:8001"
+      EVALUATION_PATH: "/app/artifacts/evaluation.json"
+      GEMINI_MODEL: "${GEMINI_MODEL:-gemini-2.5-flash}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
+      GOOGLE_GENAI_USE_VERTEXAI: "${GOOGLE_GENAI_USE_VERTEXAI:-}"
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-}"
+      GOOGLE_CLOUD_LOCATION: "${GOOGLE_CLOUD_LOCATION:-}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./ml/artifacts:/app/artifacts:ro
+    depends_on:
+      inference:
+        condition: service_started
+  inference:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    environment:
+      INFERENCE_HOST: "0.0.0.0"
+      INFERENCE_PORT: "8001"
+      MODEL_ARTIFACT: "/app/artifacts/verityflow-model.joblib"
+    volumes:
+      - ./ml/artifacts:/app/artifacts:ro
+    expose:
+      - "8001"
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:8080"
+    depends_on:
+      - api
