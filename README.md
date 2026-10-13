@@ -2,7 +2,7 @@
 
 **Every financial risk, connected to its evidence.**
 
-An explainable financial transaction-fraud investigation workspace for the BFSI challenge. The intended modeling dataset is Kaggle's **simulated US credit-card transaction** dataset—not real banking data and not an MSME lending dataset. The product separates transaction fields, model estimates, and deterministic rule findings; an alert is not proof of fraud.
+An explainable transaction investigation workspace for the BFSI challenge. The optional research dataset is Kaggle's **simulated US credit-card transaction** dataset—not real banking data and not an MSME lending dataset. The deployed demo uses fictional records and illustrative scores from Go fixtures; an alert is not proof of fraud.
 
 > **Current state:** The workspace runs in clearly labeled synthetic demo mode with 72 fictional transaction fixtures. No Kaggle files, fitted model, or Kaggle evaluation metrics are present. The evidence-first case workflow and Gemini SDK integration are implemented, but no Gemini credential is configured for a live call. No Cloud Run deployment has been performed.
 
@@ -10,8 +10,8 @@ An explainable financial transaction-fraud investigation workspace for the BFSI 
 
 - Responsive investigation dashboard with transaction activity, risk-band and category charts, filters, pagination, and transaction detail drawer.
 - Go REST API with JSON errors, CORS allowlisting, input validation, request limits, security headers, timeouts, and graceful shutdown.
-- Separate, private Python model-inference service contract; unavailable models return explicit errors rather than invented predictions.
-- Reproducible Python pipeline: data checks, leakage-aware features, chronological holdout, logistic and tree-based model comparison, saved metrics and versioned artifact.
+- Stable, varied synthetic transaction fixtures and deterministic review rules served directly by the Go API.
+- Optional offline Python research pipeline; not required or used by the deployed application.
 - Deterministic demo rules show evidence and review thresholds; not proof or operational policy.
 - Evidence-first case workflow with evidence ledger, backend Gemini function-calling integration, validated finding citations, deterministic fallback, case comparison, analyst-confirmed actions, in-process audit events, and report digest.
 - Fixed-set API workflow harness checks demo evidence references, fallback behavior, invalid transaction handling, comparison, and latency; unsupported-claim review and live Gemini tool selection are not yet measured.
@@ -23,20 +23,16 @@ An explainable financial transaction-fraud investigation workspace for the BFSI 
 flowchart LR
   Analyst[Analyst browser] -->|JSON REST| Go[Go public API]
   Go --> Demo[Clearly labeled synthetic demo fixtures]
-  Go -. private, optional .-> Inference[Python inference service]
-  Inference --> Artifact[Versioned scikit-learn pipeline artifact]
-  Dataset[Kaggle CSVs added manually] --> Validate[Data validation]
-  Validate --> Train[Chronological training and evaluation]
-  Train --> Artifact
+  Dataset[Kaggle CSVs added manually] -. optional offline .-> Validate[Data validation and research]
 ```
 
-The browser calls the Go API only. Python inference should be reachable only over a private service network, never exposed as the public API. In the current demo topology the inference service is optional and reports model unavailability until a valid saved artifact exists.
+The browser calls the Go API only. The Go API creates and serves fictional transactions directly; no Python service, model artifact, or ML runtime is needed to build or deploy the app. The `ml/` folder is independent offline research tooling and is not called by the application.
 
 The baseline inspection and prioritized delivery checklist are in [docs/technical-audit.md](docs/technical-audit.md). The Gemini integration uses only fixed, allowlisted Go read tools scoped to the selected synthetic transaction and its rule findings. Agent output is rejected to a deterministic fallback if its evidence IDs do not match the ledger.
 
 ## Technology
 
-React, Vite, TypeScript, Tailwind CSS, React Router, Recharts; Go `net/http`; Google's official `google.golang.org/genai` SDK; Python 3.11, pandas, NumPy, scikit-learn, joblib; Docker Compose.
+React, Vite, TypeScript, Tailwind CSS, React Router, Recharts; Go `net/http`; Google's official `google.golang.org/genai` SDK for optional investigations; Docker Compose. Python dependencies apply only to offline research.
 
 ## Local prerequisites
 
@@ -67,7 +63,7 @@ Optional download requires your own configured Kaggle CLI and explicit authoriza
 
 CSV columns expected from this dataset include timestamp, `cc_num`, merchant, category, amount, gender, city/state/ZIP, coordinates, population, job, date of birth, transaction ID, Unix time, merchant coordinates, and (for training) `is_fraud`. Raw identifiers and personal fields are excluded from the model and not shown in the dashboard. Do not infer test metrics without valid target labels.
 
-## ML commands
+## Optional offline ML research
 
 Run in repository root after placing data:
 
@@ -91,13 +87,11 @@ Default Go API origin: `http://localhost:8080`.
 
 | Method | Path                                                                                                 | Description                                                                             |
 | ------ | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| GET    | `/health`                                                                                            | API health and explicit demo/model status                                               |
+| GET    | `/health`                                                                                            | API health and synthetic demo mode                                                      |
 | GET    | `/api/v1/config`                                                                                     | Mode and documented demo thresholds                                                     |
 | GET    | `/api/v1/overview`                                                                                   | Filterable current fixture counts and amount totals                                     |
 | GET    | `/api/v1/transactions?page=1&page_size=20&q=...&category=...&risk=...&min_amount=...&max_amount=...` | Search/filter/paginate synthetic records (max 100/page)                                 |
 | GET    | `/api/v1/transactions/{id}`                                                                          | Fixture details and deterministic findings                                              |
-| POST   | `/api/v1/predict`                                                                                    | Validates request; currently returns `503 model_unavailable` rather than fake inference |
-| GET    | `/api/v1/model/metrics`                                                                              | Saved evaluation metrics, or explicit `503` when unavailable                            |
 | GET    | `/api/v1/analytics/fraud-trends`                                                                     | Fixture counts by day (not model evaluation)                                            |
 | GET    | `/api/v1/analytics/categories`                                                                       | Fixture summary by merchant category                                                    |
 | POST   | `/api/v1/transactions/{id}/investigate`                                                              | Bounded Gemini tool-calling investigation or explicit deterministic fallback            |
@@ -108,7 +102,7 @@ Default Go API origin: `http://localhost:8080`.
 | POST   | `/api/v1/cases/{id}/actions`                                                                         | Append analyst status/rationale only with `confirmed: true`                             |
 | POST   | `/api/v1/cases/{id}/report`                                                                          | Generate an evidence-linked report and content digest                                   |
 
-Set `PORT`, `CORS_ORIGINS` (comma-separated exact origins), `GEMINI_MODEL`, `GOOGLE_API_KEY` or Vertex AI ADC variables, and `VITE_API_BASE_URL` through environment configuration. `INFERENCE_URL` and `EVALUATION_PATH` are optional integrations and are not configured by the demo. See [.env.example](.env.example). Never commit secrets. This MVP has no analyst authentication; restrict access to the synthetic demo.
+Set `PORT`, `CORS_ORIGINS` (comma-separated exact origins), optional Gemini variables, and `VITE_API_BASE_URL` through environment configuration. Python, `INFERENCE_URL`, evaluation artifacts, and model variables are not needed to deploy the app. See [.env.example](.env.example). Never commit secrets. This MVP has no analyst authentication; restrict access to the synthetic demo.
 
 ## Tests and quality checks
 
@@ -122,7 +116,7 @@ Go tests passed after the agent workflow changes, including fallback evidence re
 
 ## Deployment
 
-Cloud Run preparation is in [deploy/cloud-run.md](deploy/cloud-run.md). The Go API binds to `PORT`, runs non-root, and has health/readiness routes. The API can use Gemini Developer API or Vertex AI ADC through the official Go SDK. The Python inference service remains private. A live deployment was not attempted: `gcloud`, project selection, and deployment permissions were unavailable. Because this MVP has no authentication, do not expose it publicly or connect real/sensitive transaction data until identity verification and case authorization are implemented.
+Cloud Run preparation is in [deploy/cloud-run.md](deploy/cloud-run.md). The Go API binds to `PORT`, runs non-root, and has health/readiness routes. Go and the frontend are the complete application deployment; no Python service or model artifact is used. Optional Gemini investigations use the Go SDK. A live deployment was not attempted: `gcloud`, project selection, and deployment permissions were unavailable. Because this MVP has no authentication, do not expose it publicly or connect real/sensitive transaction data until identity verification and case authorization are implemented.
 
 ## Safeguards and limitations
 
@@ -136,11 +130,11 @@ Gemini SDK function-calling integration is implemented, but no live call was ver
 2. **0:25–1:05 — Overview:** review scenario volume, high-risk bands, activity trend, and category chart; point out all values are demo-generated, not measured fraud prevalence.
 3. **1:05–1:50 — Explorer:** search an ID/merchant, filter by category, risk, and amount, sort by the demo estimate, and page through results.
 4. **1:50–2:35 — Investigation:** open a high-risk scenario; separate observed fields, illustrative score, threshold-based rule evidence, and follow-up checks. State that an alert is not proof.
-5. **2:35–3:00 — Evaluation/methodology:** show that metrics are unavailable until real authorized CSVs are supplied and training succeeds; review safeguards and limitations.
+5. **2:35–3:00 — Methodology:** review the synthetic data provenance, rule thresholds, and safeguards.
 
 ## Screenshots
 
-Capture current app screenshots after locally running the UI: overview dashboard, filtered transaction explorer, investigation details drawer, model-unavailable evaluation state, and methodology safeguards. No screenshots are committed because no browser/runtime validation has yet been performed.
+Capture current app screenshots after locally running the UI: overview dashboard, filtered transaction explorer, investigation details drawer, and methodology safeguards. No screenshots are committed because no browser/runtime validation has yet been performed.
 
 ## License
 

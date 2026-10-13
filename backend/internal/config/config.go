@@ -6,20 +6,16 @@ import (
 )
 
 type Config struct {
-	Port           string
-	CORSOrigins    []string
-	InferenceURL   string
-	EvaluationPath string
-	GeminiModel    string
+	Port        string
+	CORSOrigins []string
+	GeminiModel string
 }
 
 func Load() Config {
 	return Config{
-		Port:           value("PORT", "8080"),
-		CORSOrigins:    split(value("CORS_ORIGINS", "http://localhost:5173")),
-		InferenceURL:   value("INFERENCE_URL", ""),
-		EvaluationPath: value("EVALUATION_PATH", ""),
-		GeminiModel:    value("GEMINI_MODEL", "gemini-2.5-flash"),
+		Port:        value("PORT", "8080"),
+		CORSOrigins: split(value("CORS_ORIGINS", "http://localhost:5173")),
+		GeminiModel: value("GEMINI_MODEL", "gemini-2.5-flash"),
 	}
 }
 

@@ -3,6 +3,7 @@ package storage
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -20,35 +21,58 @@ type Store struct {
 
 // NewDemoStore creates clearly labelled, fictional scenarios for UI exploration only.
 func NewDemoStore() *Store {
-	categories := []string{"grocery_pos", "gas_transport", "shopping_net", "food_dining", "entertainment", "misc_pos"}
-	merchants := []string{"Northstar Market", "Pine Street Fuel", "Juniper Outfitters", "Harbor Table", "Cedar Cinema", "Westline Goods"}
-	places := [][2]string{{"Austin", "TX"}, {"Raleigh", "NC"}, {"Madison", "WI"}, {"Tucson", "AZ"}, {"Portland", "ME"}}
-	base := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	type merchantProfile struct {
+		name, category string
+		average, spread float64
+	}
+	merchants := []merchantProfile{
+		{"Northstar Market", "grocery_pos", 76, 42}, {"Maple & Main Grocer", "grocery_pos", 64, 38},
+		{"Green Basket Foods", "grocery_pos", 91, 55}, {"Pine Street Fuel", "gas_transport", 49, 24},
+		{"Redtail Petroleum", "gas_transport", 57, 29}, {"Juniper Outfitters", "shopping_net", 148, 110},
+		{"Northstar Electronics", "shopping_net", 236, 170}, {"Cedar & Thread", "shopping_net", 112, 78},
+		{"Harbor Table", "food_dining", 68, 43}, {"Little Finch Cafe", "food_dining", 24, 14},
+		{"Paloma Kitchen", "food_dining", 82, 51}, {"Cedar Cinema", "entertainment", 38, 22},
+		{"Lantern Music Hall", "entertainment", 94, 61}, {"Westline Goods", "misc_pos", 87, 68},
+		{"Lakeside Pharmacy", "misc_pos", 42, 31}, {"Foundry Home Supply", "misc_pos", 126, 96},
+	}
+	places := [][2]string{{"Austin", "TX"}, {"Raleigh", "NC"}, {"Madison", "WI"}, {"Tucson", "AZ"}, {"Portland", "ME"}, {"Richmond", "VA"}, {"Boise", "ID"}, {"Cleveland", "OH"}, {"Sacramento", "CA"}, {"Nashville", "TN"}}
+	rng := rand.New(rand.NewSource(20261012))
+	base := time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC)
 	items := make([]models.Transaction, 0, 72)
 	for i := 0; i < 72; i++ {
-		cat := i % len(categories)
-		place := places[(i*7+i/4)%len(places)]
-		amount := 18.0 + float64((i*83)%620) + float64(i%100)/100
-		hour := 7 + (i*5)%15
+		merchant := merchants[rng.Intn(len(merchants))]
+		place := places[rng.Intn(len(places))]
+		amount := merchant.average + rng.NormFloat64()*merchant.spread
+		if amount < 4.50 {
+			amount = 4.50 + rng.Float64()*12
+		}
 		if i%17 == 0 {
-			amount = 1825.45 + float64(i)
-			hour = 2
+			amount = 1650 + rng.Float64()*3200
 		}
-		if i%11 == 0 {
-			amount = 995.0 + float64(i%7)*145
+		day := rng.Intn(12)
+		hour := 7 + rng.Intn(15)
+		if i%19 == 0 {
+			hour = 1 + rng.Intn(4)
 		}
-		ts := base.Add(-time.Duration(i*3+i%5) * time.Hour).Add(time.Duration(hour-base.Add(-time.Duration(i*3+i%5)*time.Hour).Hour()) * time.Hour)
-		risk := math.Min(0.96, 0.04+float64((i*13)%55)/100)
-		if amount >= fraud.HighAmountThreshold || fraud.IsUnusualHour(ts) {
-			risk = math.Max(risk, 0.71+float64(i%25)/100)
+		ts := base.AddDate(0, 0, -day).Add(time.Duration(hour)*time.Hour + time.Duration(rng.Intn(60))*time.Minute)
+		risk := 0.12 + (rng.Float64()-0.5)*0.12
+		if amount >= 500 {
+			risk = 0.43 + rng.Float64()*0.15
 		}
+		if amount >= fraud.HighAmountThreshold {
+			risk = 0.76 + rng.Float64()*0.16
+		}
+		if fraud.IsUnusualHour(ts) {
+			risk += 0.18
+		}
+		risk = math.Min(0.98, risk)
 		band := "low"
 		if risk >= 0.70 {
 			band = "high"
 		} else if risk >= 0.35 {
 			band = "medium"
 		}
-		t := models.Transaction{ID: fmt.Sprintf("VF-DEMO-%04d", 1000+i), Timestamp: ts, Amount: math.Round(amount*100) / 100, Merchant: merchants[cat], Category: categories[cat], City: place[0], State: place[1], RiskBand: band, DemoRisk: math.Round(risk*1000) / 1000}
+		t := models.Transaction{ID: fmt.Sprintf("VF-DEMO-%04d", 1000+i), Timestamp: ts, Amount: math.Round(amount*100) / 100, Merchant: merchant.name, Category: merchant.category, City: place[0], State: place[1], RiskBand: band, DemoRisk: math.Round(risk*1000) / 1000}
 		t.Findings = fraud.Findings(t)
 		items = append(items, t)
 	}

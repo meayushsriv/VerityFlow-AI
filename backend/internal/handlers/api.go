@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,7 +9,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,24 +22,18 @@ import (
 )
 
 type API struct {
-	store          *storage.Store
-	logger         *slog.Logger
-	inferenceURL   string
-	evaluationPath string
-	investigation  *services.InvestigationService
-	agentSlots     chan struct{}
+	store         *storage.Store
+	logger        *slog.Logger
+	investigation *services.InvestigationService
+	agentSlots    chan struct{}
 }
 
-func New(store *storage.Store, logger *slog.Logger, inferenceURL string, evaluationPaths ...string) *API {
-	path := ""
+func New(store *storage.Store, logger *slog.Logger, modelName string) *API {
 	model := "gemini-2.5-flash"
-	if len(evaluationPaths) > 0 && evaluationPaths[0] != "" {
-		path = evaluationPaths[0]
+	if modelName != "" {
+		model = modelName
 	}
-	if len(evaluationPaths) > 1 && evaluationPaths[1] != "" {
-		model = evaluationPaths[1]
-	}
-	return &API{store: store, logger: logger, inferenceURL: inferenceURL, evaluationPath: path, investigation: services.NewInvestigationService(store, model), agentSlots: make(chan struct{}, 4)}
+	return &API{store: store, logger: logger, investigation: services.NewInvestigationService(store, model), agentSlots: make(chan struct{}, 4)}
 }
 func (a *API) Router(origins []string) http.Handler {
 	mux := http.NewServeMux()
@@ -52,8 +43,6 @@ func (a *API) Router(origins []string) http.Handler {
 	mux.HandleFunc("GET /api/v1/overview", a.overview)
 	mux.HandleFunc("GET /api/v1/transactions", a.transactions)
 	mux.HandleFunc("GET /api/v1/transactions/{id}", a.transaction)
-	mux.HandleFunc("GET /api/v1/model/metrics", a.metrics)
-	mux.HandleFunc("POST /api/v1/predict", a.predict)
 	mux.HandleFunc("GET /api/v1/analytics/fraud-trends", a.trends)
 	mux.HandleFunc("GET /api/v1/analytics/categories", a.categories)
 	mux.HandleFunc("POST /api/v1/transactions/{id}/investigate", a.investigate)
@@ -73,126 +62,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func errorJSON(w http.ResponseWriter, status int, code, message string) {
 	writeJSON(w, status, map[string]string{"error": code, "message": message})
 }
-func (a *API) health(w http.ResponseWriter, r *http.Request) {
-	modelAvailable := false
-	if a.inferenceURL != "" {
-		ctx, cancel := context.WithTimeout(r.Context(), 750*time.Millisecond)
-		defer cancel()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(a.inferenceURL, "/")+"/health", nil)
-		if err == nil {
-			resp, err := (&http.Client{Timeout: 750 * time.Millisecond}).Do(req)
-			if err == nil {
-				var state struct {
-					ModelAvailable bool `json:"model_available"`
-				}
-				if resp.StatusCode == http.StatusOK && json.NewDecoder(http.MaxBytesReader(w, resp.Body, 2<<10)).Decode(&state) == nil {
-					modelAvailable = state.ModelAvailable
-				}
-				resp.Body.Close()
-			}
-		}
-	}
-	writeJSON(w, 200, map[string]any{"status": "ok", "mode": "synthetic_demo", "model_available": modelAvailable})
+func (a *API) health(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, 200, map[string]any{"status": "ok", "mode": "synthetic_demo"})
 }
 func (a *API) ready(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, 200, map[string]any{"status": "ready", "demo_mode": true, "gemini_configured": a.investigation.Available(), "model_status": "unavailable"})
+	writeJSON(w, 200, map[string]any{"status": "ready", "demo_mode": true, "gemini_configured": a.investigation.Available()})
 }
 func (a *API) config(w http.ResponseWriter, _ *http.Request) {
 	modelStatus := "unavailable"
 	if a.investigation.Available() {
 		modelStatus = "gemini_configured"
 	}
-	writeJSON(w, 200, map[string]any{"demo_mode": true, "dataset": "synthetic UI fixtures", "model_status": "unavailable", "gemini_status": modelStatus, "risk_thresholds": map[string]float64{"medium": 0.35, "high": 0.70}, "high_amount_review_usd": fraud.HighAmountThreshold})
+	writeJSON(w, 200, map[string]any{"demo_mode": true, "dataset": "synthetic fictional transactions", "gemini_status": modelStatus, "risk_thresholds": map[string]float64{"medium": 0.35, "high": 0.70}, "high_amount_review_usd": fraud.HighAmountThreshold})
 }
-func (a *API) metrics(w http.ResponseWriter, _ *http.Request) {
-	content, err := os.ReadFile(a.evaluationPath)
-	if err != nil {
-		errorJSON(w, http.StatusServiceUnavailable, "model_unavailable", "No model evaluation artifact is configured. Synthetic demo scenarios do not have trained model metrics.")
-		return
-	}
-	var metrics map[string]any
-	if err := json.Unmarshal(content, &metrics); err != nil {
-		errorJSON(w, http.StatusServiceUnavailable, "invalid_metrics", "Saved evaluation output is invalid JSON.")
-		return
-	}
-	writeJSON(w, http.StatusOK, metrics)
-}
-func (a *API) predict(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
-	var input struct {
-		Amount            float64 `json:"amount"`
-		Category          string  `json:"category"`
-		Merchant          string  `json:"merchant"`
-		State             string  `json:"state"`
-		Timestamp         string  `json:"timestamp"`
-		CityPopulation    float64 `json:"city_population"`
-		Latitude          float64 `json:"latitude"`
-		Longitude         float64 `json:"longitude"`
-		MerchantLatitude  float64 `json:"merchant_latitude"`
-		MerchantLongitude float64 `json:"merchant_longitude"`
-	}
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&input); err != nil {
-		errorJSON(w, 400, "invalid_request", "Provide a valid JSON transaction request.")
-		return
-	}
-	if input.Amount < 0 || input.Amount > 1e9 || math.IsNaN(input.Amount) || math.IsInf(input.Amount, 0) || len(input.Category) > 80 || len(input.Merchant) > 120 || len(input.State) > 8 || input.CityPopulation < 0 || !finite(input.CityPopulation) || !validCoordinate(input.Latitude, -90, 90) || !validCoordinate(input.MerchantLatitude, -90, 90) || !validCoordinate(input.Longitude, -180, 180) || !validCoordinate(input.MerchantLongitude, -180, 180) {
-		errorJSON(w, 400, "invalid_request", "Amount, category, merchant, population, state, and coordinates must be within their documented limits.")
-		return
-	}
-	ts, err := time.Parse(time.RFC3339, input.Timestamp)
-	if err != nil {
-		ts, err = time.Parse("2006-01-02 15:04:05", input.Timestamp)
-	}
-	if err != nil {
-		errorJSON(w, 400, "invalid_request", "timestamp must be RFC3339 or YYYY-MM-DD HH:MM:SS.")
-		return
-	}
-	if a.inferenceURL == "" {
-		errorJSON(w, http.StatusServiceUnavailable, "model_unavailable", "Prediction is unavailable until a verified model artifact and private inference service are configured.")
-		return
-	}
-	payload := map[string]any{"amt": input.Amount, "category": input.Category, "merchant": input.Merchant, "state": input.State, "trans_date_trans_time": ts.Format(time.RFC3339), "city_pop": input.CityPopulation, "lat": input.Latitude, "long": input.Longitude, "merch_lat": input.MerchantLatitude, "merch_long": input.MerchantLongitude}
-	body, _ := json.Marshal(payload)
-	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(a.inferenceURL, "/")+"/predict", bytes.NewReader(body))
-	if err != nil {
-		errorJSON(w, 503, "inference_unavailable", "Inference service is unavailable.")
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 4 * time.Second}).Do(req)
-	if err != nil {
-		errorJSON(w, 503, "inference_unavailable", "Inference service did not respond within the configured timeout.")
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		errorJSON(w, 503, "inference_unavailable", "Inference service could not produce a verified model prediction.")
-		return
-	}
-	var result struct {
-		ModelVersion   string  `json:"model_version"`
-		RiskScore      float64 `json:"risk_score"`
-		Threshold      float64 `json:"threshold"`
-		PredictedLabel int     `json:"predicted_label"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, resp.Body, 16<<10)).Decode(&result); err != nil || !finite(result.RiskScore) || result.RiskScore < 0 || result.RiskScore > 1 || result.PredictedLabel < 0 || result.PredictedLabel > 1 {
-		errorJSON(w, 503, "invalid_model_response", "Inference service returned an invalid model response.")
-		return
-	}
-	band := "low"
-	if result.RiskScore >= 0.70 {
-		band = "high"
-	} else if result.RiskScore >= 0.35 {
-		band = "medium"
-	}
-	writeJSON(w, 200, map[string]any{"model_version": result.ModelVersion, "risk_score": result.RiskScore, "threshold": result.Threshold, "predicted_label": result.PredictedLabel, "risk_band": band, "interpretation": "Model alert only; not proof of fraud."})
-}
-func finite(v float64) bool                    { return !math.IsNaN(v) && !math.IsInf(v, 0) }
-func validCoordinate(v, min, max float64) bool { return finite(v) && v >= min && v <= max }
 func query(r *http.Request) url.Values         { return r.URL.Query() }
 func (a *API) filtered(q url.Values) ([]models.Transaction, string) {
 	items := make([]models.Transaction, 0)
@@ -276,6 +158,7 @@ func pageInt(v string, fallback int) int {
 	}
 	return n
 }
+func finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 func (a *API) transactions(w http.ResponseWriter, r *http.Request) {
 	items, err := a.filtered(query(r))
 	if err != "" {

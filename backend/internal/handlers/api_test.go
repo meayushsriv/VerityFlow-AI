@@ -30,18 +30,14 @@ func TestTransactionsPaginationAndFilterValidation(t *testing.T) {
 		t.Fatalf("got %d, want 400", w.Code)
 	}
 }
-func TestMetricsAndPredictUnavailable(t *testing.T) {
+func TestModelRoutesAreNotRegistered(t *testing.T) {
 	a := testAPI()
-	w := httptest.NewRecorder()
-	a.metrics(w, httptest.NewRequest("GET", "/api/v1/model/metrics", nil))
-	if w.Code != 503 {
-		t.Fatalf("metrics status %d", w.Code)
-	}
-	w = httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/api/v1/predict", strings.NewReader(`{"amount":10,"category":"food","merchant":"market","state":"CA","timestamp":"2026-10-12T10:00:00Z"}`))
-	a.predict(w, r)
-	if w.Code != 503 {
-		t.Fatalf("predict status %d", w.Code)
+	for _, path := range []string{"/api/v1/model/metrics", "/api/v1/predict"} {
+		w := httptest.NewRecorder()
+		a.Router(nil).ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		if w.Code != 404 {
+			t.Errorf("%s status %d, want 404", path, w.Code)
+		}
 	}
 }
 

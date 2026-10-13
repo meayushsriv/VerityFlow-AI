@@ -55,7 +55,6 @@ const nav = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/transactions", label: "Transactions", icon: CreditCard },
   { to: "/cases", label: "Investigation cases", icon: Fingerprint },
-  { to: "/model", label: "Model evaluation", icon: Activity },
   { to: "/methodology", label: "Methodology", icon: CircleHelp },
 ];
 const money = (n: number) =>
@@ -1390,296 +1389,6 @@ function TransactionsPage() {
     </Shell>
   );
 }
-function MetricsDashboard({ report }: { report: Record<string, unknown> }) {
-  const selected = (report.selected ?? {}) as Record<string, unknown>;
-  const split = (report.split ?? {}) as Record<string, unknown>;
-  const curve = (selected.precision_recall_curve ?? {}) as {
-    precision?: number[];
-    recall?: number[];
-  };
-  const matrix = (selected.confusion_matrix ?? []) as number[][];
-  const importance = (selected.global_permutation_importance ?? []) as {
-    feature: string;
-    mean_pr_auc_drop: number;
-    std: number;
-  }[];
-  const models = (report.models ?? []) as Record<string, unknown>[];
-  const curveData = (curve.recall ?? []).map((recall, index) => ({
-    recall,
-    precision: curve.precision?.[index] ?? 0,
-  }));
-  const metric = (name: string) =>
-    typeof selected[name] === "number"
-      ? `${(Number(selected[name]) * 100).toFixed(1)}%`
-      : "—";
-  return (
-    <>
-      <div className="stat-grid evaluation-stats">
-        {[
-          ["Precision", metric("precision")],
-          ["Recall", metric("recall")],
-          ["F1-score", metric("f1")],
-          ["PR-AUC", metric("pr_auc")],
-          ["ROC-AUC", metric("roc_auc")],
-        ].map(([label, value]) => (
-          <div className="stat-card" key={label}>
-            <div className="stat-top">
-              <span>{label}</span>
-            </div>
-            <div className="stat-value">{value}</div>
-            <div className="stat-detail">
-              Saved chronological holdout result
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="chart-grid evaluation-grid">
-        <article className="panel trend-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Precision–recall curve</h2>
-              <p>Points serialized in the evaluation artifact</p>
-            </div>
-            <span className="subtle-badge">
-              {String(report.selected_model ?? "selected model")}
-            </span>
-          </div>
-          <div className="chart-area">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={curveData}
-                margin={{ top: 12, right: 10, bottom: 0, left: -18 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 5"
-                  vertical={false}
-                  stroke="#202d3d"
-                />
-                <XAxis
-                  type="number"
-                  dataKey="recall"
-                  domain={[0, 1]}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "#7f8da0", fontSize: 10 }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="precision"
-                  domain={[0, 1]}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "#7f8da0", fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#121e2c",
-                    border: "1px solid #2b3a4c",
-                    borderRadius: 9,
-                    color: "#eef3f8",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="precision"
-                  stroke="#39b4a3"
-                  fill="#39b4a322"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-        <article className="panel risk-panel">
-          <div className="panel-header">
-            <div>
-              <h2>Confusion matrix</h2>
-              <p>Actual rows · predicted columns</p>
-            </div>
-          </div>
-          <div className="confusion-matrix">
-            <div />
-            <b>Predicted 0</b>
-            <b>Predicted 1</b>
-            <b>Actual 0</b>
-            <span>{matrix[0]?.[0] ?? "—"}</span>
-            <span>{matrix[0]?.[1] ?? "—"}</span>
-            <b>Actual 1</b>
-            <span>{matrix[1]?.[0] ?? "—"}</span>
-            <span>{matrix[1]?.[1] ?? "—"}</span>
-          </div>
-          <div className="matrix-threshold">
-            Selected threshold{" "}
-            <b>
-              {typeof selected.threshold === "number"
-                ? Number(selected.threshold).toFixed(4)
-                : "—"}
-            </b>
-          </div>
-        </article>
-      </div>
-      <div className="panel model-comparison">
-        <div className="panel-header">
-          <div>
-            <h2>Baseline versus selected model</h2>
-            <p>Metrics reported directly from the saved holdout evaluation</p>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>MODEL</th>
-                <th>PRECISION</th>
-                <th>RECALL</th>
-                <th>F1</th>
-                <th>PR-AUC</th>
-                <th>ROC-AUC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map((model) => (
-                <tr key={String(model.name)}>
-                  <td>
-                    {String(model.name)}
-                    {model.name === report.selected_model && (
-                      <span className="selected-tag">SELECTED</span>
-                    )}
-                  </td>
-                  {["precision", "recall", "f1", "pr_auc", "roc_auc"].map(
-                    (key) => (
-                      <td key={key}>
-                        {typeof model[key] === "number"
-                          ? Number(model[key]).toFixed(4)
-                          : "—"}
-                      </td>
-                    ),
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="split-summary">
-          Chronological 80/20 holdout <i /> Train{" "}
-          {String(split.train_rows ?? "—")} rows <i /> Validation{" "}
-          {String(split.validation_rows ?? "—")} rows <i /> Validation
-          prevalence{" "}
-          {typeof (
-            report.fraud_prevalence as Record<string, unknown> | undefined
-          )?.validation === "number"
-            ? `${(Number((report.fraud_prevalence as Record<string, unknown>).validation) * 100).toFixed(2)}%`
-            : "—"}{" "}
-          <i /> Latency{" "}
-          {typeof selected.inference_latency_ms_per_transaction === "number"
-            ? `${Number(selected.inference_latency_ms_per_transaction).toFixed(3)} ms/row`
-            : "—"}
-        </div>
-      </div>
-      <div className="panel importance-panel">
-        <div className="panel-header">
-          <div>
-            <h2>Global feature importance</h2>
-            <p>Validation PR-AUC decrease after shuffling each input feature</p>
-          </div>
-          <span className="subtle-badge">GLOBAL · NOT CASE-SPECIFIC</span>
-        </div>
-        <div className="importance-list">
-          {importance.map((row) => (
-            <div key={row.feature}>
-              <span>{row.feature.replaceAll("_", " ")}</span>
-              <div>
-                <i
-                  style={{
-                    width: `${Math.max(0, Math.min(100, row.mean_pr_auc_drop * 1000))}%`,
-                  }}
-                />
-              </div>
-              <b>{row.mean_pr_auc_drop.toFixed(4)}</b>
-            </div>
-          ))}
-        </div>
-        <p className="importance-caveat">
-          Global association is not a causal or per-transaction explanation.
-          Case-level feature contributions are not currently generated.
-        </p>
-      </div>
-    </>
-  );
-}
-function ModelPage() {
-  const { data, error, loading, retry } = useLatestLoad(api.metrics);
-  return (
-    <Shell>
-      <div className="content">
-        <PageHeading
-          eyebrow="MODEL QUALITY & VALIDATION"
-          title="Model evaluation"
-          description="This frontend/backend demo uses synthetic scenarios and does not run a trained model."
-        />
-        <div className="model-status-panel">
-          <div className="model-status-icon">
-            <Activity size={20} />
-          </div>
-          <div>
-            <h2>
-              {loading
-                ? "Checking evaluation availability…"
-                : error
-                  ? "Demo metrics are not available"
-                  : "Evaluation artifact loaded"}
-            </h2>
-            <p>
-              {error ||
-                "Metrics shown below are generated from your saved evaluation output."}
-            </p>
-          </div>
-          <span
-            className={`subtle-badge ${error ? "badge-muted" : "badge-good"}`}
-          >
-            {error ? "DEMO DATA ONLY" : "VERIFIED OUTPUT"}
-          </span>
-        </div>
-        {error && (
-          <div className="method-card">
-            <h3>No trained metrics in demo mode</h3>
-            <p>
-              The dashboard uses fictional transactions and illustrative risk
-              estimates. It does not start the ML pipeline or present fixture
-              values as trained-model evaluation results.
-            </p>
-          </div>
-        )}
-        {error && (
-          <button className="button-secondary" onClick={retry}>
-            Retry evaluation lookup
-          </button>
-        )}
-        {data && <MetricsDashboard report={data} />}
-        <div className="evaluation-notes">
-          <div className="eyebrow">EVALUATION POLICY</div>
-          <ul>
-            <li>
-              Chronological split; no random mixing of future records into
-              training.
-            </li>
-            <li>
-              Report precision, recall, F1, PR-AUC, ROC-AUC, and confusion
-              matrix.
-            </li>
-            <li>
-              Threshold selection is explicitly documented and not a production
-              policy.
-            </li>
-            <li>
-              Test-file classification metrics require genuinely available,
-              valid labels.
-            </li>
-          </ul>
-        </div>
-      </div>
-    </Shell>
-  );
-}
 function MethodologyPage() {
   return (
     <Shell>
@@ -1697,14 +1406,15 @@ function MethodologyPage() {
             </div>
             <h2>Data provenance</h2>
             <p>
-              The intended source is the Kaggle{" "}
-              <em>Credit Card Transactions Fraud Detection Dataset</em> by
-              kartik2112. It contains simulated US card transactions; it is not
-              real banking data and is not an MSME lending dataset.
+              The displayed records are fictional fixtures generated by the Go
+              API to resemble ordinary US card activity. They are not imported
+              from Kaggle or observed accounts. The optional Kaggle{" "}
+              <em>Credit Card Transactions Fraud Detection Dataset</em> is
+              simulated card data, not real banking or MSME loan data.
             </p>
             <div className="method-callout">
-              Dataset is never downloaded automatically. Obtain it only after
-              reviewing the Kaggle access terms and placing CSVs locally.
+              The application does not download or use the optional research
+              dataset. Its demo works from Go-generated fixtures alone.
             </div>
           </article>
           <article className="method-card">
@@ -1713,9 +1423,9 @@ function MethodologyPage() {
             </div>
             <h2>Risk score meaning</h2>
             <p>
-              Current demo scores are deterministic values generated for
-              interface exploration. They are not trained model output,
-              calibrated probabilities, or evidence of fraud.
+              The Go API generates fictional transaction values and illustrative
+              review scores for interface exploration. No model is run; these
+              scores are not calibrated probabilities or evidence of fraud.
             </p>
             <div className="threshold-list">
               <span>
@@ -1735,14 +1445,13 @@ function MethodologyPage() {
             </div>
             <h2>Feature safeguards</h2>
             <p>
-              Training excludes names, raw card and transaction identifiers,
-              street addresses, ZIP codes, date of birth, occupation, gender,
-              and the target label.
+              The demo API creates only fictional merchant, amount, timestamp,
+              category, and coarse location fields. No customer identity or card
+              data is used.
             </p>
             <div className="method-callout">
-              Category, merchant, state, time-derived features, amount,
-              population context, and approximate card-to-merchant distance are
-              evaluated. Feature usefulness and bias require review.
+              The app uses deterministic review rules and illustrative fixture
+              scores. It does not load a trained artifact or call Python.
             </div>
           </article>
           <article className="method-card">
@@ -1774,9 +1483,9 @@ function MethodologyPage() {
             </div>
             <div>
               <span>02</span>
-              <b>Demo estimate</b>
+              <b>Illustrative score</b>
               <p>
-                Clearly marked illustrative UI score; no live model connected.
+                Generated within the Go demo backend; no Python or model service.
               </p>
             </div>
             <div>
@@ -1986,7 +1695,6 @@ export default function App() {
       <Route path="/transactions/:id" element={<TransactionRoute />} />
       <Route path="/cases" element={<CasesPage />} />
       <Route path="/cases/:id" element={<CaseRoute />} />
-      <Route path="/model" element={<ModelPage />} />
       <Route path="/methodology" element={<MethodologyPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
