@@ -34,7 +34,7 @@ type API struct {
 }
 
 func New(store *storage.Store, logger *slog.Logger, inferenceURL string, evaluationPaths ...string) *API {
-	path := "../ml/artifacts/evaluation.json"
+	path := ""
 	model := "gemini-2.5-flash"
 	if len(evaluationPaths) > 0 && evaluationPaths[0] != "" {
 		path = evaluationPaths[0]
@@ -107,7 +107,7 @@ func (a *API) config(w http.ResponseWriter, _ *http.Request) {
 func (a *API) metrics(w http.ResponseWriter, _ *http.Request) {
 	content, err := os.ReadFile(a.evaluationPath)
 	if err != nil {
-		errorJSON(w, http.StatusServiceUnavailable, "model_unavailable", "No trained model evaluation artifact is available. Place the Kaggle files and run the documented training pipeline.")
+		errorJSON(w, http.StatusServiceUnavailable, "model_unavailable", "No model evaluation artifact is configured. Synthetic demo scenarios do not have trained model metrics.")
 		return
 	}
 	var metrics map[string]any
