@@ -7,7 +7,7 @@ export type AgentFinding = { text:string; evidence_ids:string[]; kind:string }
 export type Investigation = { case_id:string; mode:string; summary:string; findings:AgentFinding[]; missing_evidence:string[]; next_checks:string[]; evidence:Evidence[]; tool_calls:{name:string;status:string;evidence_ids?:string[]}[]; requires_analyst_confirmation:boolean; disclaimer:string }
 export type Case = { id:string;transaction_id:string;status:string;created_at:string;updated_at:string }
 export type AuditEvent = { id:string;case_id:string;transaction_id:string;action:string;rationale?:string;actor:string;at:string }
-const base = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? 'https://verity-flow-ai.vercel.app' : '')
+const base = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? 'https://verity-flow-ai-c8lt-onmf79a4o.vercel.app' : '')
 async function request<T>(path: string): Promise<T> { const response = await fetch(`${base}${path}`); if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.message ?? `Request failed (${response.status})`) }; return response.json() }
 export const api = {
   health: () => request<{status:string;mode:string}>('/health'),
