@@ -18,7 +18,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg := config.Load()
 	store := storage.NewDemoStore()
-	api := handlers.New(store, logger, cfg.InferenceURL, cfg.EvaluationPath, cfg.GeminiModel)
+	api := handlers.New(store, logger, cfg.GeminiModel)
 	server := &http.Server{Addr: ":" + cfg.Port, Handler: api.Router(cfg.CORSOrigins), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 
 	go func() {
