@@ -1614,7 +1614,7 @@ function ModelPage() {
         <PageHeading
           eyebrow="MODEL QUALITY & VALIDATION"
           title="Model evaluation"
-          description="Evaluation metrics are loaded from the saved, chronological holdout report."
+          description="This frontend/backend demo uses synthetic scenarios and does not run a trained model."
         />
         <div className="model-status-panel">
           <div className="model-status-icon">
@@ -1623,9 +1623,9 @@ function ModelPage() {
           <div>
             <h2>
               {loading
-                ? "Checking for an evaluation artifact…"
+                ? "Checking evaluation availability…"
                 : error
-                  ? "No trained model evaluation available"
+                  ? "Demo metrics are not available"
                   : "Evaluation artifact loaded"}
             </h2>
             <p>
@@ -1636,21 +1636,17 @@ function ModelPage() {
           <span
             className={`subtle-badge ${error ? "badge-muted" : "badge-good"}`}
           >
-            {error ? "MODEL UNAVAILABLE" : "VERIFIED OUTPUT"}
+            {error ? "DEMO DATA ONLY" : "VERIFIED OUTPUT"}
           </span>
         </div>
         {error && (
           <div className="method-card">
-            <h3>Generate measured results</h3>
+            <h3>No trained metrics in demo mode</h3>
             <p>
-              Place the authorized Kaggle CSV files under the ignored raw data
-              folder, install ML dependencies, then run the documented train and
-              evaluation commands. This page does not substitute fixture
-              numbers.
+              The dashboard uses fictional transactions and illustrative risk
+              estimates. It does not start the ML pipeline or present fixture
+              values as trained-model evaluation results.
             </p>
-            <div className="inline-code">
-              make train &amp;&amp; make evaluate
-            </div>
           </div>
         )}
         {error && (

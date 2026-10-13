@@ -42,19 +42,17 @@ React, Vite, TypeScript, Tailwind CSS, React Router, Recharts; Go `net/http`; Go
 
 - Node.js 20+ and npm
 - Go 1.22+
-- Python 3.10+
 - Docker Desktop and Compose plugin (only for container startup)
 
-Go 1.27.2 and Node/npm are installed (Go is at `C:\Program Files\Go\bin\go.exe`; PATH may need refreshing). Docker and `gcloud` were unavailable in the inspected shell. The deterministic demo needs no credentials. Gemini/Vertex credential variables are not configured.
+The deterministic frontend/backend demo needs no Python installation, Kaggle data, trained model, or credentials. Gemini/Vertex credentials are optional; investigations use the deterministic fallback when they are not configured.
 
 ## Start locally
 
-1. Install Python ML dependencies: `python -m pip install -r ml/requirements.txt`
-2. Start Go API in one terminal: `cd backend` then `go run ./cmd/api` (default port `8080`).
-3. Start frontend in another terminal: `cd frontend`, `npm install`, then `npm run dev` (Vite prints its local URL, normally port `5173`). The Vite dev server proxies `/api` to Go.
-4. The app runs without Kaggle data or a trained model, and marks all records as fictional synthetic demo scenarios.
+1. Start the Go API in one terminal: `cd backend` then `go run ./cmd/api` (default port `8080`).
+2. Start the frontend in another terminal: `cd frontend`, `npm install`, then `npm run dev` (Vite prints its local URL, normally port `5173`). The Vite dev server proxies API calls to Go.
+3. The API serves 72 in-memory synthetic scenarios and keeps investigation cases in memory. All records and risk estimates are fictional demo fixtures, not measured fraud or model predictions.
 
-Alternatively, after installing Docker Desktop, run `docker compose up --build` from the repository root; open `http://localhost:5173`. Model inference returns an explicit unavailable response until a model artifact has been created. For a live Gemini call, configure a local ignored `.env` with a Gemini key, or configure Vertex AI ADC and the project/location variables. Container builds have not been verified.
+Alternatively, run `docker compose up --build` from the repository root and open `http://localhost:5173`. Compose starts only the Go API and frontend; it does not build or start anything under `ml/`. The model-evaluation page explicitly reports that trained metrics are not part of this demo. For optional live Gemini investigations, configure a local ignored `.env` with a Gemini key, or configure Vertex AI ADC and the project/location variables.
 
 ## Dataset access and validation
 
@@ -110,7 +108,7 @@ Default Go API origin: `http://localhost:8080`.
 | POST   | `/api/v1/cases/{id}/actions`                                                                         | Append analyst status/rationale only with `confirmed: true`                             |
 | POST   | `/api/v1/cases/{id}/report`                                                                          | Generate an evidence-linked report and content digest                                   |
 
-Set `PORT`, `CORS_ORIGINS` (comma-separated exact origins), `INFERENCE_URL`, `EVALUATION_PATH`, `GEMINI_MODEL`, `GOOGLE_API_KEY` or Vertex AI ADC variables, and `VITE_API_BASE_URL` through environment configuration. See [.env.example](.env.example). Never commit secrets. This MVP has no analyst authentication; restrict access to the synthetic demo.
+Set `PORT`, `CORS_ORIGINS` (comma-separated exact origins), `GEMINI_MODEL`, `GOOGLE_API_KEY` or Vertex AI ADC variables, and `VITE_API_BASE_URL` through environment configuration. `INFERENCE_URL` and `EVALUATION_PATH` are optional integrations and are not configured by the demo. See [.env.example](.env.example). Never commit secrets. This MVP has no analyst authentication; restrict access to the synthetic demo.
 
 ## Tests and quality checks
 
