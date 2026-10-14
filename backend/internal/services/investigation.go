@@ -14,7 +14,7 @@ import (
 )
 
 const maxToolIterations = 4
-const disclaimer = "This is investigation support, not a fraud finding or financial decision. Demo scores are illustrative, not model predictions."
+const disclaimer = "This is investigation support, not a fraud finding or financial decision. Demo scores are illustrative."
 
 type InvestigationService struct {
 	store  *storage.Store

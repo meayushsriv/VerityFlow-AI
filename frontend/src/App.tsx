@@ -216,7 +216,7 @@ function DemoBanner() {
         <b>Exploring synthetic demo scenarios</b>
         <span>
           These fictional transactions are illustrative fixtures—not real
-          customer activity or model predictions.
+          customer activity.
         </span>
       </div>
       <button

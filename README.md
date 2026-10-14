@@ -46,7 +46,7 @@ The deterministic frontend/backend demo needs no Python installation, Kaggle dat
 
 1. Start the Go API in one terminal: `cd backend` then `go run ./cmd/api` (default port `8080`).
 2. Start the frontend in another terminal: `cd frontend`, `npm install`, then `npm run dev` (Vite prints its local URL, normally port `5173`). The Vite dev server proxies API calls to Go.
-3. The API serves 72 in-memory synthetic scenarios and keeps investigation cases in memory. All records and risk estimates are fictional demo fixtures, not measured fraud or model predictions.
+3. The API serves 72 in-memory synthetic scenarios and keeps investigation cases in memory. All records and risk estimates are fictional demo fixtures, not measured fraud.
 
 Alternatively, run `docker compose up --build` from the repository root and open `http://localhost:5173`. Compose starts only the Go API and frontend; it does not build or start anything under `ml/`. The model-evaluation page explicitly reports that trained metrics are not part of this demo. For optional live Gemini investigations, configure a local ignored `.env` with a Gemini key, or configure Vertex AI ADC and the project/location variables.
 

@@ -374,7 +374,7 @@ func (a *API) overview(w http.ResponseWriter, r *http.Request) {
 			high++
 		}
 	}
-	writeJSON(w, 200, map[string]any{"total_transactions": len(items), "high_risk_scenarios": alerts, "lower_risk_scenarios": len(items) - alerts, "alert_rate": ratio(alerts, len(items)), "flagged_amount": math.Round(flagged*100) / 100, "rule_review_count": high, "risk_distribution": risk, "mode": "synthetic_demo", "disclaimer": "Fictional demo scenarios; not observed customer transactions or model predictions."})
+	writeJSON(w, 200, map[string]any{"total_transactions": len(items), "high_risk_scenarios": alerts, "lower_risk_scenarios": len(items) - alerts, "alert_rate": ratio(alerts, len(items)), "flagged_amount": math.Round(flagged*100) / 100, "rule_review_count": high, "risk_distribution": risk, "mode": "synthetic_demo", "disclaimer": "Fictional demo scenarios; not observed customer transactions."})
 }
 func ratio(a, b int) float64 {
 	if b == 0 {
